@@ -28,6 +28,7 @@ func main() {
 	router.GET("/list/", list)
 	router.GET("/list", list)
 	router.GET("/mount", mount)
+	router.GET("/mount/", mount)
 	router.POST("/create", create)
 	router.POST("/create/", create)
 
