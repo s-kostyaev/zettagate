@@ -77,8 +77,8 @@ func mount(c *gin.Context) {
 		m := make(map[string]string)
 		rows := strings.Fields(str)
 		if len(rows) == 0 {
-			c.JSON(200, gin.H{"stdout": strings.Split(string(stdout), "\n"),
-				"stderr": strings.Split(stderr, "\n")})
+			c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(
+				stdout), "\n")}, "stderr": strings.Split(stderr, "\n")})
 			return
 		}
 		for i, row := range []string{"dataset", "mountpoint"} {
@@ -106,8 +106,8 @@ func umount(c *gin.Context) {
 		c.JSON(503, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(200, gin.H{"stdout": strings.Split(string(stdout), "\n"),
-		"stderr": strings.Split(stderr, "\n")})
+	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
+		"\n")}, "stderr": strings.Split(stderr, "\n")})
 }
 
 func snap(c *gin.Context) {
@@ -118,8 +118,8 @@ func snap(c *gin.Context) {
 		c.JSON(503, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(200, gin.H{"stdout": strings.Split(string(stdout), "\n"),
-		"stderr": strings.Split(stderr, "\n")})
+	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
+		"\n")}, "stderr": strings.Split(stderr, "\n")})
 }
 
 func create(c *gin.Context) {
@@ -130,8 +130,8 @@ func create(c *gin.Context) {
 		c.JSON(503, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(200, gin.H{"stdout": strings.Split(string(stdout), "\n"),
-		"stderr": strings.Split(stderr, "\n")})
+	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
+		"\n")}, "stderr": strings.Split(stderr, "\n")})
 }
 
 func destroy(c *gin.Context) {
@@ -142,8 +142,8 @@ func destroy(c *gin.Context) {
 		c.JSON(503, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(200, gin.H{"stdout": strings.Split(string(stdout), "\n"),
-		"stderr": strings.Split(stderr, "\n")})
+	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
+		"\n")}, "stderr": strings.Split(stderr, "\n")})
 }
 
 func root(c *gin.Context) {
@@ -156,7 +156,7 @@ func root(c *gin.Context) {
 		c.JSON(503, gin.H{"error": err.Error()})
 		return
 	}
-	cachedRoot = gin.H{"stdout": strings.Split(string(stdout), "\n"),
-		"stderr": strings.Split(string(stderr), "\n")}
+	cachedRoot = gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
+		"\n")}, "stderr": strings.Split(string(stderr), "\n")}
 	c.JSON(200, cachedRoot)
 }

@@ -120,8 +120,6 @@ func setContainer(c *gin.Context) bool {
 		}
 	}
 	return false
-	// c.Set("container", "node0.in.ngs.ru.mem_stress.d")
-	// return true
 }
 
 func getRootFS(container string) string {
