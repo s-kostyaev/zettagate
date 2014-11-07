@@ -16,7 +16,7 @@ var (
 	formatter = logging.MustStringFormatter(
 		"%{time:15:04:05.000000} %{pid} %{level:.8s} %{longfile} %{message}")
 	loglevel = logging.INFO
-	logger   = logging.MustGetLogger("webtop")
+	logger   = logging.MustGetLogger("host-zfs")
 	config   = getConfig(configPath)
 )
 
