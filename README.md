@@ -1,4 +1,4 @@
-host-zfs
+Zetta Gate
 ==========
 
 This  programm is a server side of client-server application for using
