@@ -3,4 +3,3 @@ User = "root"
 Port = 22
 KeyFile = "/home/feofan/.ssh/id_rsa"
 ServicePort = 3000
-Salt = "some salt"

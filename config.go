@@ -26,7 +26,6 @@ type Config struct {
 	Port        int
 	KeyFile     string
 	ServicePort int
-	Salt        string
 }
 
 func setupLogger() {
