@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -46,10 +44,12 @@ type Container struct {
 }
 
 var (
-	rootFsMap  = make(map[string]string)
-	hostMap    = make(map[string]string)
 	cachedRoot = gin.H{}
 )
+
+func (c *Container) Ip() string {
+	return c.ip
+}
 
 func setMountpoint(args []string, container string) []string {
 	result := []string{}
@@ -112,20 +112,32 @@ func getContainer(c *gin.Context) string {
 }
 
 func setContainer(c *gin.Context) bool {
-	for _, cookie := range c.Request.Cookies() {
-		if hex.EncodeToString(xorBytes(sha256.Sum256([]byte(cookie.Name)),
-			sha256.Sum256([]byte(config.Salt)))) == cookie.Value {
-			c.Set("container", cookie.Name)
-			return true
+	ip := strings.Split(c.Request.RemoteAddr, ":")[0]
+	response, err := http.Get(config.ReportUrl)
+	if err != nil {
+		logger.Error(err.Error())
+		return false
+	}
+	if response.StatusCode != 200 {
+		return false
+	}
+	dec := json.NewDecoder(response.Body)
+	report := Report{}
+	if err := dec.Decode(&report); err != nil && err == io.EOF {
+		logger.Error(err.Error())
+	}
+	for _, host := range report {
+		for cname, container := range host.Containers {
+			if container.Ip() == ip {
+				c.Set("container", cname)
+				return true
+			}
 		}
 	}
 	return false
 }
 
 func getRootFS(container string) string {
-	if result, ok := rootFsMap[container]; ok {
-		return result
-	}
 	host := getHost(container) + ":" + fmt.Sprint(config.Port)
 	if host == "" {
 		return ""
@@ -153,9 +165,6 @@ func getRootFS(container string) string {
 }
 
 func getHost(container string) string {
-	if result, ok := hostMap[container]; ok {
-		return result
-	}
 	response, err := http.Get(config.ReportUrl)
 	if err != nil {
 		logger.Error(err.Error())
@@ -171,7 +180,6 @@ func getHost(container string) string {
 	}
 	for name, host := range report {
 		if _, ok := host.Containers[container]; ok {
-			hostMap[container] = name
 			return name
 		}
 	}
