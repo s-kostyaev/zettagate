@@ -11,18 +11,16 @@ func main() {
 
 	destructive := router.Group("/")
 	destructive.Use(checkTarget())
-	{
-		destructive.POST("/mount/", mount)
-		destructive.POST("/umount/", umount)
-		destructive.POST("/unmount/", umount)
-		destructive.POST("/snap/", snap)
-		destructive.POST("/snap", snap)
-		destructive.POST("/snapshot/", snap)
-		destructive.POST("/snapshot", snap)
-		destructive.DELETE("/destroy", destroy)
-		destructive.DELETE("/destroy/", destroy)
 
-	}
+	destructive.POST("/mount/", mount)
+	destructive.POST("/umount/", umount)
+	destructive.POST("/unmount/", umount)
+	destructive.POST("/snap/", snap)
+	destructive.POST("/snap", snap)
+	destructive.POST("/snapshot/", snap)
+	destructive.POST("/snapshot", snap)
+	destructive.DELETE("/destroy", destroy)
+	destructive.DELETE("/destroy/", destroy)
 
 	router.GET("/", root)
 	router.GET("/list/", list)
