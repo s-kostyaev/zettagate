@@ -1,6 +1,6 @@
 # Maintainer:  <s-kostyaev@ngs>
 pkgname=zettagate-git
-pkgver=0.1.1
+pkgver=0.2
 pkgrel=1
 pkgdesc="web server for using zfs from lxc containers"
 arch=('i686' 'x86_64')
@@ -25,4 +25,5 @@ build() {
 package() {
   install -D -m 755 ${srcdir}/${pkgname}/zettagate ${pkgdir}/usr/bin/zettagate
   install -D -m 644 ${srcdir}/${pkgname}/zettagate.toml ${pkgdir}/etc/zettagate.toml
+  install -D -m 644 ${srcdir}/${pkgname}/zettagate.service ${pkgdir}/usr/lib/systemd/system/zettagate.service
 }
