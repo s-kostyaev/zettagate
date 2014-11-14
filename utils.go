@@ -15,41 +15,17 @@ import (
 type Report map[string]Host
 
 type Host struct {
-	Hostname      string
-	CpuUsage      int
-	CpuCapacity   int
-	DiskFree      int
-	DiskCapacity  int
-	RamFree       int
-	RamCapacity   int
-	ZfsArcMax     int
-	ZfsArcCurrent int
-	ControlOpTime int
-	Uptime        int
-	NetAddr       []string
-	CpuWeight     int
-	DiskWeight    int
-	RamWeight     float64
-	Score         float64
-	Pools         []string
-	Containers    map[string]Container
+	Hostname   string
+	NetAddr    []string
+	Pools      []string
+	Containers map[string]Container
 }
 
-type Container struct {
-	name   string
-	host   string
-	status string
-	ip     string
-	key    string
-}
+type Container map[string]string
 
 var (
 	cachedRoot = gin.H{}
 )
-
-func (c *Container) Ip() string {
-	return c.ip
-}
 
 func setMountpoint(args []string, container string) []string {
 	result := []string{}
@@ -118,17 +94,14 @@ func setContainer(c *gin.Context) bool {
 		logger.Error(err.Error())
 		return false
 	}
-	if response.StatusCode != 200 {
-		return false
-	}
 	dec := json.NewDecoder(response.Body)
 	report := Report{}
-	if err := dec.Decode(&report); err != nil && err == io.EOF {
+	if err := dec.Decode(&report); err != nil && err != io.EOF {
 		logger.Error(err.Error())
 	}
 	for _, host := range report {
 		for cname, container := range host.Containers {
-			if container.Ip() == ip {
+			if container["ip"] == ip {
 				c.Set("container", cname)
 				return true
 			}
