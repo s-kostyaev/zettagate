@@ -202,21 +202,6 @@ func run(host, command string) (stdout, stderr string, err error) {
 	return string(bOut), string(bErr), nil
 }
 
-func xorBytes(b1 [32]byte, bmore ...[32]byte) []byte {
-	for _, m := range bmore {
-		if len(b1) != len(m) {
-			panic("length mismatch")
-		}
-	}
-
-	rv := make([]byte, len(b1))
-
-	for i := range b1 {
-		rv[i] = b1[i]
-		for _, m := range bmore {
-			rv[i] = rv[i] ^ m[i]
-		}
-	}
-
-	return rv
+func getSubcommand(c *gin.Context) string {
+	return strings.Split(strings.Trim(c.Request.URL.RequestURI(), "/"), "?")[0]
 }

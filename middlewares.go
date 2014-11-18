@@ -21,6 +21,9 @@ func checkTarget() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		args := getArgs(c)
 		target := args[len(args)-1]
+		if getSubcommand(c) == "clone" {
+			target = args[len(args)-2]
+		}
 		if strings.HasPrefix(target, "/") {
 			c.Next()
 			return

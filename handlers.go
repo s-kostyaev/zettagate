@@ -146,6 +146,18 @@ func destroy(c *gin.Context) {
 		"\n")}, "stderr": strings.Split(stderr, "\n")})
 }
 
+func clone(c *gin.Context) {
+	args := " " + strings.Join(getArgs(c), " ")
+	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs clone"+
+		args)
+	if err != nil {
+		c.JSON(503, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
+		"\n")}, "stderr": strings.Split(stderr, "\n")})
+}
+
 func root(c *gin.Context) {
 	if _, ok := cachedRoot["stdout"]; ok {
 		c.JSON(200, cachedRoot)
