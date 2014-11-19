@@ -165,7 +165,9 @@ func getArgs(c *gin.Context) []string {
 	for key, value := range values {
 		if key != "last" {
 			result = append(result, key)
-			result = append(result, value[0])
+			if value[0] != "" {
+				result = append(result, value[0])
+			}
 		}
 	}
 	result = append(result, values.Get("last"))
