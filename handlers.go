@@ -147,7 +147,7 @@ func destroy(c *gin.Context) {
 }
 
 func clone(c *gin.Context) {
-	args := " " + strings.Join(getArgs(c), " ")
+	args := " " + strings.Join(setMountpoint(getArgs(c), getContainer(c)), " ")
 	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs clone"+
 		args)
 	if err != nil {
