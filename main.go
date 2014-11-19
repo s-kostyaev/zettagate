@@ -13,6 +13,7 @@ func main() {
 	destructive.Use(checkTarget())
 
 	destructive.POST("/mount/", mount)
+	destructive.POST("/mount", mount)
 	destructive.POST("/umount/", umount)
 	destructive.POST("/unmount/", umount)
 	destructive.POST("/snap/", snap)
