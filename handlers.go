@@ -82,6 +82,12 @@ func create(c *gin.Context) {
 		c.JSON(503, gin.H{"error": err.Error()})
 		return
 	}
+	err, stderr = remountToContainer(c)
+	if err != nil {
+		c.JSON(503, gin.H{"error": "Created, but not mounted: " + err.Error() +
+			" " + stderr})
+		return
+	}
 	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
 		"\n")}, "stderr": strings.Split(stderr, "\n")})
 }
@@ -129,6 +135,12 @@ func clone(c *gin.Context) {
 		args)
 	if err != nil {
 		c.JSON(503, gin.H{"error": err.Error()})
+		return
+	}
+	err, stderr = remountToContainer(c)
+	if err != nil {
+		c.JSON(503, gin.H{"error": "Created, but not mounted: " + err.Error() +
+			" " + stderr})
 		return
 	}
 	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),

@@ -207,3 +207,39 @@ func run(host, command string) (stdout, stderr string, err error) {
 func getSubcommand(c *gin.Context) string {
 	return strings.Split(strings.Trim(c.Request.URL.RequestURI(), "/"), "?")[0]
 }
+
+func remountToContainer(c *gin.Context) (error, string) {
+	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs list")
+	if err != nil {
+		return err, stderr
+	}
+	out := strings.Split(strings.Trim(stdout, "\n"), "\n")
+	result := []map[string]string{}
+	for _, str := range out {
+		m := make(map[string]string)
+		rows := strings.Fields(str)
+		for i, row := range strings.Fields(out[0]) {
+			m[strings.ToLower(row)] = rows[i]
+		}
+		result = append(result, m)
+	}
+	data := filterByRootFs(result, getContainer(c))
+	args := getArgs(c)
+	cmd := "/usr/bin/zfs umount " + args[len(args)-1]
+	_, stderr, err = run(getHost(getContainer(c)), cmd)
+	if err != nil {
+		return err, stderr
+	}
+	mountpoint := ""
+	for _, m := range data {
+		if m["name"] == args[len(args)-1] {
+			mountpoint = m["mountpoint"]
+			break
+		}
+	}
+	cmd = "lxc-attach -e -n " + getContainer(c) + " -- /bin/mount -t zfs " +
+		args[len(args)-1] + " " + mountpoint
+	_, stderr, err = run(getHost(getContainer(c)), cmd)
+	return err, stderr
+
+}
