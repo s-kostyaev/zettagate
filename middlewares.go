@@ -20,9 +20,12 @@ func authContainer() gin.HandlerFunc {
 func checkTarget() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		args := getArgs(c)
-		target := args[len(args)-1]
-		if getSubcommand(c) == "clone" {
+		target := ""
+		switch getSubcommand(c) {
+		case "clone", "rename":
 			target = args[len(args)-2]
+		default:
+			target = args[len(args)-1]
 		}
 		if strings.HasPrefix(target, "/") {
 			c.Next()

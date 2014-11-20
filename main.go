@@ -24,6 +24,8 @@ func main() {
 	destructive.POST("/snapshot", snap)
 	destructive.POST("/clone", clone)
 	destructive.POST("/clone/", clone)
+	destructive.POST("/rename", rename)
+	destructive.POST("/rename/", rename)
 	destructive.DELETE("/destroy", destroy)
 	destructive.DELETE("/destroy/", destroy)
 

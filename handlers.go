@@ -197,3 +197,15 @@ func root(c *gin.Context) {
 		"\n")}, "stderr": strings.Split(string(stderr), "\n")}
 	c.JSON(200, cachedRoot)
 }
+
+func rename(c *gin.Context) {
+	args := " " + strings.Join(getArgs(c), " ")
+	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs rename"+
+		args)
+	if err != nil {
+		c.JSON(503, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
+		"\n")}, "stderr": strings.Split(stderr, "\n")})
+}
