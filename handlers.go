@@ -117,12 +117,14 @@ func set(c *gin.Context) {
 		cmd = "lxc-attach -e -n " + getContainer(c) + " -- /bin/umount " +
 			args[1]
 	} else {
-		cmd = "lxc-attach -e -n " + getContainer(c) + " -- /bin/mount -t zfs " +
-			args[1] + " " + option[1]
+		cmd = "/usr/bin/zfs set mountpoint=" + getRootFS(getContainer(c)) +
+			option[1] + " " + args[1] + "; lxc-attach -e -n " +
+			getContainer(c) + " -- /bin/mount -t zfs " + args[1] + " " +
+			option[1]
 	}
 	stdout, stderr, err := run(getHost(getContainer(c)), cmd)
 	if err != nil {
-		c.JSON(503, gin.H{"error": err.Error()})
+		c.JSON(503, gin.H{"error": err.Error() + " " + stderr})
 		return
 	}
 	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
