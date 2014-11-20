@@ -150,12 +150,19 @@ func set(c *gin.Context) {
 	args := getArgs(c)
 	option := strings.Split(args[0], "=")
 	if option[0] != "mountpoint" {
-		c.JSON(403, gin.H{"error": "Setting option " + option[0] + " forbidden"})
+		c.JSON(403, gin.H{"error": "Setting option " + option[0] +
+			" forbidden"})
 		return
 	}
-	stdout, stderr, err := run(getHost(getContainer(c)),
-		"lxc-attach -e -n "+getContainer(c)+" -- /bin/mount -t zfs "+args[1]+
-			" "+option[1])
+	cmd := ""
+	if option[1] == "none" {
+		cmd = "lxc-attach -e -n " + getContainer(c) + " -- /bin/umount " +
+			args[1]
+	} else {
+		cmd = "lxc-attach -e -n " + getContainer(c) + " -- /bin/mount -t zfs " +
+			args[1] + " " + option[1]
+	}
+	stdout, stderr, err := run(getHost(getContainer(c)), cmd)
 	if err != nil {
 		c.JSON(503, gin.H{"error": err.Error()})
 		return
