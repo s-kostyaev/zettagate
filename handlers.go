@@ -146,6 +146,24 @@ func destroy(c *gin.Context) {
 		"\n")}, "stderr": strings.Split(stderr, "\n")})
 }
 
+func set(c *gin.Context) {
+	args := getArgs(c)
+	option := strings.Split(args[0], "=")
+	if option[0] != "mountpoint" {
+		c.JSON(403, gin.H{"error": "Setting option " + option[0] + " forbidden"})
+		return
+	}
+	stdout, stderr, err := run(getHost(getContainer(c)),
+		"lxc-attach -e -n "+getContainer(c)+" -- /bin/mount -t zfs "+args[1]+
+			" "+option[1])
+	if err != nil {
+		c.JSON(503, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
+		"\n")}, "stderr": strings.Split(stderr, "\n")})
+}
+
 func clone(c *gin.Context) {
 	args := " " + strings.Join(setMountpoint(getArgs(c), getContainer(c)), " ")
 	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs clone"+

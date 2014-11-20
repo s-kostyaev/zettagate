@@ -34,6 +34,8 @@ func main() {
 	router.GET("/mount/", mount)
 	router.POST("/create", create)
 	router.POST("/create/", create)
+	router.POST("/set", set)
+	router.POST("/set/", set)
 
 	router.NotFound404(notImplemented)
 
