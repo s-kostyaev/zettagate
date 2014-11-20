@@ -1,7 +1,7 @@
 # Maintainer:  <s-kostyaev@ngs>
 pkgname=zettagate-git
-pkgver=0.2
-pkgrel=2
+pkgver=0.3
+pkgrel=1
 pkgdesc="web server for using zfs from lxc containers"
 arch=('i686' 'x86_64')
 url="https://github.com/s-kostyaev/zettagate"
