@@ -20,12 +20,13 @@ func list(c *gin.Context) {
 		return
 	}
 	out := strings.Split(strings.Trim(stdout, "\n"), "\n")
+	header := strings.Fields(strings.ToLower(out[0]))
 	result := []map[string]string{}
 	for _, str := range out {
 		m := make(map[string]string)
 		rows := strings.Fields(str)
-		for i, row := range strings.Fields(out[0]) {
-			m[strings.ToLower(row)] = rows[i]
+		for i, row := range header {
+			m[row] = rows[i]
 		}
 		result = append(result, m)
 	}
@@ -40,8 +41,8 @@ func list(c *gin.Context) {
 		for _, str := range out {
 			m := make(map[string]string)
 			rows := strings.Fields(str)
-			for i, row := range strings.Fields(out[0]) {
-				m[strings.ToLower(row)] = rows[i]
+			for i, row := range header {
+				m[row] = rows[i]
 			}
 			result = append(result, m)
 		}
@@ -58,7 +59,7 @@ func list(c *gin.Context) {
 		}
 	}
 	c.JSON(200, gin.H{"stdout": gin.H{"format": "table",
-		"data": data},
+		"data": data, "header": header},
 		"stderr": strings.Split(stderr, "\n")})
 }
 
