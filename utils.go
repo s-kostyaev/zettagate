@@ -160,18 +160,7 @@ func getHost(container string) string {
 }
 
 func getArgs(c *gin.Context) []string {
-	result := []string{}
-	values := c.Request.URL.Query()
-	for key, value := range values {
-		if key != "last" {
-			result = append(result, key)
-			if value[0] != "" {
-				result = append(result, value[0])
-			}
-		}
-	}
-	result = append(result, values.Get("last"))
-	return result
+	return strings.Split(strings.TrimPrefix(c.Params.ByName("args"), "/"), "+")
 }
 
 func run(host, command string) (stdout, stderr string, err error) {
