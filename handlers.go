@@ -1,22 +1,17 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
 	"strings"
 )
 
-func notImplemented(c *gin.Context) {
-	c.JSON(404, gin.H{"error": "not implemented"})
-}
-
-func list(c *gin.Context) {
+func list(container string, args []string, w http.ResponseWriter) {
 	datasets := []string{}
 	byDatasets := false
-	args := " " + strings.Join(getArgs(c), " ")
-	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs list"+
-		args)
+	argStr := strings.Join(args, " ")
+	stdout, stderr, err := run(getHost(container), argStr)
 	if err != nil {
-		c.JSON(503, gin.H{"error": err.Error()})
+		returnError(w, err.Error(), 503)
 		return
 	}
 	out := strings.Split(strings.Trim(stdout, "\n"), "\n")
@@ -30,10 +25,10 @@ func list(c *gin.Context) {
 		}
 		result = append(result, m)
 	}
-	if strings.Contains(args, "t all") || strings.Contains(args, "t snap") {
-		stdout, _, err := run(getHost(getContainer(c)), "/usr/bin/zfs list")
+	if strings.Contains(argStr, "t all") || strings.Contains(argStr, "t snap") {
+		stdout, _, err := run(getHost(container), "list")
 		if err != nil {
-			c.JSON(503, gin.H{"error": err.Error()})
+			returnError(w, err.Error(), 503)
 			return
 		}
 		out := strings.Split(strings.Trim(stdout, "\n"), "\n")
@@ -46,133 +41,110 @@ func list(c *gin.Context) {
 			}
 			result = append(result, m)
 		}
-		matches := filterByRootFs(result, getContainer(c))
+		matches := filterByRootFs(result, container)
 		for _, match := range matches {
 			datasets = append(datasets, match["name"])
 		}
 		byDatasets = true
 	}
-	data := filterByRootFs(result, getContainer(c))
+	data := filterByRootFs(result, container)
 	if byDatasets {
 		for _, d := range filterByDatasets(result, datasets) {
 			data = append(data, d)
 		}
 	}
-	c.JSON(200, gin.H{"stdout": gin.H{"format": "table",
-		"data": data, "header": header},
-		"stderr": strings.Split(stderr, "\n")})
+	returnTable(w, stderr, header, data)
 }
 
-func snap(c *gin.Context) {
-	args := " " + strings.Join(getArgs(c), " ")
-	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs snap"+
-		args)
+func snap(container string, args []string, w http.ResponseWriter) {
+	argStr := strings.Join(args, " ")
+	stdout, stderr, err := run(getHost(container), argStr)
 	if err != nil {
-		c.JSON(503, gin.H{"error": err.Error()})
+		returnError(w, err.Error(), 503)
 		return
 	}
-	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
-		"\n")}, "stderr": strings.Split(stderr, "\n")})
+	returnPlain(w, stdout, stderr)
 }
 
-func create(c *gin.Context) {
-	args := " " + strings.Join(setMountpoint(getArgs(c), getContainer(c)), " ")
-	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs create"+
-		args)
+func create(container string, args []string, w http.ResponseWriter) {
+	argStr := strings.Join(setMountpoint(args, container), " ")
+	stdout, stderr, err := run(getHost(container), argStr)
 	if err != nil {
-		c.JSON(503, gin.H{"error": err.Error()})
+		returnError(w, err.Error(), 503)
 		return
 	}
-	err, stderr = remountToContainer(c)
+	err, stderr = remountToContainer(container, args)
 	if err != nil {
-		c.JSON(503, gin.H{"error": "Created, but not mounted: " + err.Error() +
-			" " + stderr})
+		returnError(w, "Created, but not mounted: "+err.Error()+" "+stderr, 503)
 		return
 	}
-	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
-		"\n")}, "stderr": strings.Split(stderr, "\n")})
+	returnPlain(w, stdout, stderr)
 }
 
-func destroy(c *gin.Context) {
-	args := " " + strings.Join(getArgs(c), " ")
-	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs destroy"+
-		args)
+func destroy(container string, args []string, w http.ResponseWriter) {
+	argStr := strings.Join(args, " ")
+	stdout, stderr, err := run(getHost(container), argStr)
 	if err != nil {
-		c.JSON(503, gin.H{"error": err.Error()})
+		returnError(w, err.Error(), 503)
 		return
 	}
-	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
-		"\n")}, "stderr": strings.Split(stderr, "\n")})
+	returnPlain(w, stdout, stderr)
 }
 
-func set(c *gin.Context) {
-	args := getArgs(c)
-	option := strings.Split(args[0], "=")
+func set(container string, args []string, w http.ResponseWriter) {
+	option := strings.Split(args[1], "=")
 	if option[0] != "mountpoint" {
-		c.JSON(403, gin.H{"error": "Setting option " + option[0] +
-			" forbidden"})
+		returnError(w, "Setting option "+option[0]+" forbidden", 403)
 		return
 	}
 	cmd := ""
 	if option[1] == "none" {
-		cmd = "lxc-attach -e -n " + getContainer(c) + " -- /bin/umount " +
-			args[1]
+		cmd = "lxc-attach -e -n " + container + " -- /bin/umount " +
+			args[2]
 	} else {
-		cmd = "/usr/bin/zfs set mountpoint=" + getRootFS(getContainer(c)) +
-			option[1] + " " + args[1] + "; lxc-attach -e -n " +
-			getContainer(c) + " -- /bin/mount -t zfs " + args[1] + " " +
+		cmd = "/usr/bin/zfs set mountpoint=" + getRootFS(container) +
+			option[1] + " " + args[2] + "; lxc-attach -e -n " +
+			container + " -- /bin/mount -t zfs " + args[2] + " " +
 			option[1]
 	}
-	stdout, stderr, err := run(getHost(getContainer(c)), cmd)
+	stdout, stderr, err := runCmd(getHost(container), cmd)
 	if err != nil {
-		c.JSON(503, gin.H{"error": err.Error() + " " + stderr})
+		returnError(w, err.Error()+" "+stderr, 503)
 		return
 	}
-	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
-		"\n")}, "stderr": strings.Split(stderr, "\n")})
+	returnPlain(w, stdout, stderr)
 }
 
-func clone(c *gin.Context) {
-	args := " " + strings.Join(setMountpoint(getArgs(c), getContainer(c)), " ")
-	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs clone"+
-		args)
+func clone(container string, args []string, w http.ResponseWriter) {
+	argStr := strings.Join(setMountpoint(args, container), " ")
+	stdout, stderr, err := run(getHost(container), argStr)
 	if err != nil {
-		c.JSON(503, gin.H{"error": err.Error()})
+		returnError(w, err.Error()+" "+stderr, 503)
 		return
 	}
-	err, stderr = remountToContainer(c)
+	err, stderr = remountToContainer(container, args)
 	if err != nil {
-		c.JSON(503, gin.H{"error": "Created, but not mounted: " + err.Error() +
-			" " + stderr})
+		returnError(w, "Created, but not mounted: "+err.Error()+" "+stderr, 503)
 		return
 	}
-	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
-		"\n")}, "stderr": strings.Split(stderr, "\n")})
+	returnPlain(w, stdout, stderr)
 }
 
-func root(c *gin.Context) {
-	if _, ok := cachedRoot["stdout"]; ok {
-		c.JSON(200, cachedRoot)
-		return
-	}
-	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs")
+func root(container string, w http.ResponseWriter) {
+	stdout, stderr, err := run(getHost(container), "")
 	if err != nil {
-		c.JSON(503, gin.H{"error": err.Error()})
+		returnError(w, err.Error()+" "+stderr, 503)
 		return
 	}
-	cachedRoot = gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
-		"\n")}, "stderr": strings.Split(string(stderr), "\n")}
-	c.JSON(200, cachedRoot)
+	returnPlain(w, stdout, stderr)
 }
 
-func rename(c *gin.Context) {
-	args := " " + strings.Join(getArgs(c), " ")
-	stdout, stderr, err := run(getHost(getContainer(c)), "/usr/bin/zfs rename"+
-		args)
+func rename(container string, args []string, w http.ResponseWriter) {
+	argStr := strings.Join(args, " ")
+	stdout, stderr, err := run(getHost(container), argStr)
 	if err != nil {
-		c.JSON(503, gin.H{"error": err.Error()})
+		returnError(w, err.Error()+" "+stderr, 503)
 		return
 	}
-	c.JSON(200, gin.H{"stdout": gin.H{"data": strings.Split(string(stdout),
-		"\n")}, "stderr": strings.Split(stderr, "\n")})
+	returnPlain(w, stdout, stderr)
 }
