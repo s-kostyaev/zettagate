@@ -6,61 +6,64 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/run/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			returnError(w, "bad request method", http.StatusBadRequest)
-			return
-		}
-		containerName, err := getContainer(r)
-		if err != nil {
-			returnError(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-		args := getArgs(r)
-		if len(args) == 0 {
-			root(containerName, w)
-			return
-		}
-		switch args[0] {
-		case "list":
-			list(containerName, args, w)
-		case "create":
-			create(containerName, args, w)
-		case "set":
-			set(containerName, args, w)
-		case "clone":
-			ok, err := checkTarget(containerName, args[len(args)-2])
-			if !ok {
-				returnError(w, err.Error(), 403)
-				return
-			}
-			clone(containerName, args, w)
-		case "rename":
-			ok, err := checkTarget(containerName, args[len(args)-2])
-			if !ok {
-				returnError(w, err.Error(), 403)
-				return
-			}
-			rename(containerName, args, w)
-		case "snap", "snapshot":
-			ok, err := checkTarget(containerName, args[len(args)-1])
-			if !ok {
-				returnError(w, err.Error(), 403)
-				return
-			}
-			snap(containerName, args, w)
-		case "destroy":
-			ok, err := checkTarget(containerName, args[len(args)-1])
-			if !ok {
-				returnError(w, err.Error(), 403)
-				return
-			}
-			destroy(containerName, args, w)
-		default:
-			returnError(w, "not implemented", 404)
-			return
-		}
-
-	})
+	http.HandleFunc("/run/", runHandler)
 	http.ListenAndServe(fmt.Sprintf(":%d", config.ServicePort), nil)
+}
+
+func runHandler(responseWriter http.ResponseWriter, request *http.Request) {
+	if request.Method != "POST" {
+		replyJSONError(responseWriter, "only POST requests allowed",
+			http.StatusBadRequest)
+		return
+	}
+	containerName, err := getContainerName(request)
+	if err != nil {
+		replyJSONError(responseWriter, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	args := getCommandLineFromRequest(request)
+	if len(args) == 0 {
+		handleUsage(containerName, responseWriter)
+		return
+	}
+	switch args[0] {
+	case "list":
+		handleZfsList(containerName, args, responseWriter)
+	case "create":
+		handleZfsCreate(containerName, args, responseWriter)
+	case "set":
+		handleZfsSet(containerName, args, responseWriter)
+	case "clone":
+		err := hasPermissionsZfs(containerName, args[len(args)-2])
+		if err != nil {
+			replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
+			return
+		}
+		handleZfsClone(containerName, args, responseWriter)
+	case "rename":
+		err := hasPermissionsZfs(containerName, args[len(args)-2])
+		if err != nil {
+			replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
+			return
+		}
+		handleZfsRename(containerName, args, responseWriter)
+	case "snap", "snapshot":
+		err := hasPermissionsZfs(containerName, args[len(args)-1])
+		if err != nil {
+			replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
+			return
+		}
+		handleZfsSnap(containerName, args, responseWriter)
+	case "destroy":
+		err := hasPermissionsZfs(containerName, args[len(args)-1])
+		if err != nil {
+			replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
+			return
+		}
+		handleZfsDestroy(containerName, args, responseWriter)
+	default:
+		replyJSONError(responseWriter, "not implemented", http.StatusNotFound)
+		return
+	}
+
 }
