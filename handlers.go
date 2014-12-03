@@ -397,33 +397,7 @@ func getHost(container string) string {
 }
 
 func runZfsCmd(host, argStr string) (stdout, stderr string, err error) {
-	runner, err := runcmd.NewRemoteKeyAuthRunner(config.User,
-		host+":"+fmt.Sprint(config.Port),
-		config.KeyFile)
-	if err != nil {
-		logger.Error(err.Error())
-		return "", "", err
-	}
-	cmd, err := runner.Command("/usr/bin/zfs " + argStr)
-	if err != nil {
-		logger.Error(err.Error())
-		return "", "", err
-	}
-	err = cmd.Start()
-	if err != nil {
-		logger.Error(err.Error())
-	}
-	bOut, err := ioutil.ReadAll(cmd.StdoutPipe())
-	if err != nil {
-		logger.Error(err.Error())
-		return "", "", err
-	}
-	bErr, err := ioutil.ReadAll(cmd.StderrPipe())
-	if err != nil {
-		logger.Error(err.Error())
-		return "", "", err
-	}
-	return string(bOut), string(bErr), nil
+	return runCmd(host, "/usr/bin/zfs "+argStr)
 }
 
 func runCmd(host, cmdStr string) (stdout, stderr string, err error) {
