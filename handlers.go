@@ -180,10 +180,9 @@ func handleZfsSet(container string, args []string,
 		cmd = "lxc-attach -e -n " + container + " -- /bin/umount " +
 			args[2]
 	} else {
-		cmd = "/usr/bin/zfs set mountpoint=" + getRootFS(container) +
-			option[1] + " " + args[2] + "; lxc-attach -e -n " +
-			container + " -- /bin/mount -t zfs " + args[2] + " " +
-			option[1]
+		cmd = fmt.Sprintf("/usr/bin/zfs set mountpoint=%s%s %s; lxc-attach -e "+
+			"-n %s -- /bin/mount -t zfs %s %s", getRootFS(container), option[1],
+			args[2], container, args[2], option[1])
 	}
 
 	stdout, stderr, err := runCmd(getHost(container), cmd)
