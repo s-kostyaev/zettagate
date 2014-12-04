@@ -16,16 +16,19 @@ func runHandler(responseWriter http.ResponseWriter, request *http.Request) {
 			http.StatusBadRequest)
 		return
 	}
+
 	containerName, err := getContainerName(request)
 	if err != nil {
 		replyJSONError(responseWriter, err.Error(), http.StatusUnauthorized)
 		return
 	}
+
 	args := getCommandLineFromRequest(request)
 	if len(args) == 0 {
 		handleUsage(containerName, responseWriter)
 		return
 	}
+
 	switch args[0] {
 	case "list":
 		handleZfsList(containerName, args, responseWriter)
@@ -34,32 +37,12 @@ func runHandler(responseWriter http.ResponseWriter, request *http.Request) {
 	case "set":
 		handleZfsSet(containerName, args, responseWriter)
 	case "clone":
-		err := hasPermissionsZfs(containerName, args[len(args)-2])
-		if err != nil {
-			replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
-			return
-		}
 		handleZfsClone(containerName, args, responseWriter)
 	case "rename":
-		err := hasPermissionsZfs(containerName, args[len(args)-2])
-		if err != nil {
-			replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
-			return
-		}
 		handleZfsRename(containerName, args, responseWriter)
 	case "snap", "snapshot":
-		err := hasPermissionsZfs(containerName, args[len(args)-1])
-		if err != nil {
-			replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
-			return
-		}
 		handleZfsSnap(containerName, args, responseWriter)
 	case "destroy":
-		err := hasPermissionsZfs(containerName, args[len(args)-1])
-		if err != nil {
-			replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
-			return
-		}
 		handleZfsDestroy(containerName, args, responseWriter)
 	default:
 		replyJSONError(responseWriter, "not implemented", http.StatusNotFound)

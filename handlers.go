@@ -51,13 +51,13 @@ func handleZfsList(container string, args []string,
 	responseWriter http.ResponseWriter) {
 	datasets := []string{}
 	byDatasets := false
-	argStr := strings.Join(args, " ")
-	stdout, stderr, err := runZfsCmd(getHost(container), argStr)
+	stdout, stderr, err := runZfsCmd(getHost(container), args)
 	if err != nil {
 		replyJSONError(responseWriter, err.Error(),
 			http.StatusInternalServerError)
 		return
 	}
+
 	out := strings.Split(strings.Trim(stdout, "\n"), "\n")
 	header := strings.Fields(strings.ToLower(out[0]))
 	result := []map[string]string{}
@@ -67,15 +67,18 @@ func handleZfsList(container string, args []string,
 		for i, row := range header {
 			m[row] = rows[i]
 		}
+
 		result = append(result, m)
 	}
+
 	if mustListContainSnapshots(args) {
-		stdout, _, err := runZfsCmd(getHost(container), "list")
+		stdout, _, err := runZfsCmd(getHost(container), []string{"list"})
 		if err != nil {
 			replyJSONError(responseWriter, err.Error(),
 				http.StatusInternalServerError)
 			return
 		}
+
 		out := strings.Split(strings.Trim(stdout, "\n"), "\n")
 		result := []map[string]string{}
 		for _, str := range out {
@@ -84,62 +87,82 @@ func handleZfsList(container string, args []string,
 			for i, row := range header {
 				m[row] = rows[i]
 			}
+
 			result = append(result, m)
 		}
+
 		matches := filterByRootFs(result, container)
 		for _, match := range matches {
 			datasets = append(datasets, match["name"])
 		}
+
 		byDatasets = true
 	}
+
 	data := filterByRootFs(result, container)
 	if byDatasets {
 		for _, d := range filterByDatasets(result, datasets) {
 			data = append(data, d)
 		}
+
 	}
+
 	replyTable(responseWriter, stderr, header, data)
 }
 
 func handleZfsSnap(container string, args []string,
 	responseWriter http.ResponseWriter) {
-	argStr := strings.Join(args, " ")
-	stdout, stderr, err := runZfsCmd(getHost(container), argStr)
+	err := hasPermissionsZfs(container, args[len(args)-1])
+	if err != nil {
+		replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	stdout, stderr, err := runZfsCmd(getHost(container), args)
 	if err != nil {
 		replyJSONError(responseWriter, err.Error(),
 			http.StatusInternalServerError)
 		return
 	}
+
 	replyPlain(responseWriter, stdout, stderr)
 }
 
 func handleZfsCreate(container string, args []string,
 	responseWriter http.ResponseWriter) {
-	argStr := strings.Join(setMountpoint(args, container), " ")
-	stdout, stderr, err := runZfsCmd(getHost(container), argStr)
+	stdout, stderr, err := runZfsCmd(getHost(container), setMountpoint(args,
+		container))
 	if err != nil {
 		replyJSONError(responseWriter, err.Error(),
 			http.StatusInternalServerError)
 		return
 	}
+
 	err, stderr = remountToContainer(container, args)
 	if err != nil {
 		replyJSONError(responseWriter, "Created, but not mounted: "+err.Error()+
 			" "+stderr, http.StatusInternalServerError)
 		return
 	}
+
 	replyPlain(responseWriter, stdout, stderr)
 }
 
 func handleZfsDestroy(container string, args []string,
 	responseWriter http.ResponseWriter) {
-	argStr := strings.Join(args, " ")
-	stdout, stderr, err := runZfsCmd(getHost(container), argStr)
+	err := hasPermissionsZfs(container, args[len(args)-1])
+	if err != nil {
+		replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	stdout, stderr, err := runZfsCmd(getHost(container), args)
 	if err != nil {
 		replyJSONError(responseWriter, err.Error(),
 			http.StatusInternalServerError)
 		return
 	}
+
 	replyPlain(responseWriter, stdout, stderr)
 }
 
@@ -151,6 +174,7 @@ func handleZfsSet(container string, args []string,
 			http.StatusForbidden)
 		return
 	}
+
 	cmd := ""
 	if option[1] == "none" {
 		cmd = "lxc-attach -e -n " + container + " -- /bin/umount " +
@@ -161,52 +185,69 @@ func handleZfsSet(container string, args []string,
 			container + " -- /bin/mount -t zfs " + args[2] + " " +
 			option[1]
 	}
+
 	stdout, stderr, err := runCmd(getHost(container), cmd)
 	if err != nil {
 		replyJSONError(responseWriter, err.Error()+" "+stderr,
 			http.StatusInternalServerError)
 		return
 	}
+
 	replyPlain(responseWriter, stdout, stderr)
 }
 
 func handleZfsClone(container string, args []string,
 	responseWriter http.ResponseWriter) {
-	argStr := strings.Join(setMountpoint(args, container), " ")
-	stdout, stderr, err := runZfsCmd(getHost(container), argStr)
+	err := hasPermissionsZfs(container, args[len(args)-2])
+	if err != nil {
+		replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	stdout, stderr, err := runZfsCmd(getHost(container), setMountpoint(args,
+		container))
 	if err != nil {
 		replyJSONError(responseWriter, err.Error()+" "+stderr,
 			http.StatusInternalServerError)
 		return
 	}
+
 	err, stderr = remountToContainer(container, args)
 	if err != nil {
 		replyJSONError(responseWriter, "Created, but not mounted: "+err.Error()+
 			" "+stderr, http.StatusInternalServerError)
 		return
 	}
+
 	replyPlain(responseWriter, stdout, stderr)
 }
 
 func handleUsage(container string, responseWriter http.ResponseWriter) {
-	stdout, stderr, err := runZfsCmd(getHost(container), "")
+	stdout, stderr, err := runZfsCmd(getHost(container), []string{})
 	if err != nil {
 		replyJSONError(responseWriter, err.Error()+" "+stderr,
 			http.StatusInternalServerError)
 		return
 	}
+
 	replyPlain(responseWriter, stdout, stderr)
 }
 
 func handleZfsRename(container string, args []string,
 	responseWriter http.ResponseWriter) {
-	argStr := strings.Join(args, " ")
-	stdout, stderr, err := runZfsCmd(getHost(container), argStr)
+	err := hasPermissionsZfs(container, args[len(args)-2])
+	if err != nil {
+		replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	stdout, stderr, err := runZfsCmd(getHost(container), args)
 	if err != nil {
 		replyJSONError(responseWriter, err.Error()+" "+stderr,
 			http.StatusInternalServerError)
 		return
 	}
+
 	replyPlain(responseWriter, stdout, stderr)
 }
 
@@ -216,6 +257,7 @@ func getCommandLineFromRequest(request *http.Request) []string {
 	if err != nil {
 		logger.Error(err.Error())
 	}
+
 	return strings.Fields(cmdStr)
 }
 
@@ -225,18 +267,23 @@ func getContainerName(request *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	decoder := json.NewDecoder(response.Body)
 	report := Report{}
 	if err := decoder.Decode(&report); err != nil {
 		logger.Error(err.Error())
 	}
+
 	for _, host := range report {
 		for containerName, container := range host.Containers {
 			if container["ip"] == ip {
 				return containerName, nil
 			}
+
 		}
+
 	}
+
 	return "", errors.New("access forbidden")
 }
 
@@ -267,16 +314,50 @@ func hasPermissionsZfs(container, target string) error {
 	if strings.HasPrefix(target, "/") {
 		return nil
 	}
+
 	if strings.Contains(target, "@") {
 		target = strings.Split(target, "@")[0]
 	}
+
 	acceptedTargets := []string{}
 	datasets := []string{}
-	stdout, _, err := runZfsCmd(getHost(container), "list")
+	stdout, _, err := runZfsCmd(getHost(container), []string{"list"})
 	if err != nil {
 		return err
 	}
-	out := strings.Split(strings.Trim(stdout, "\n"), "\n")
+
+	matches := filterByRootFs(createTableFromString(stdout), container)
+	for _, match := range matches {
+		datasets = append(datasets, match["name"])
+	}
+
+	stdout, _, err = runZfsCmd(getHost(container), []string{"list", "-t", "all"})
+	if err != nil {
+		return err
+	}
+
+	table := createTableFromString(stdout)
+	data := filterByRootFs(table, container)
+	for _, newRow := range filterByDatasets(table, datasets) {
+		data = append(data, newRow)
+	}
+
+	for _, row := range data {
+		acceptedTargets = append(acceptedTargets, row["name"])
+	}
+
+	for _, acceptedTarget := range acceptedTargets {
+		if acceptedTarget == target {
+			return nil
+		}
+
+	}
+
+	return errors.New("access forbidden")
+}
+
+func createTableFromString(src string) []map[string]string {
+	out := strings.Split(strings.Trim(src, "\n"), "\n")
 	result := []map[string]string{}
 	for _, str := range out {
 		newRow := make(map[string]string)
@@ -284,40 +365,11 @@ func hasPermissionsZfs(container, target string) error {
 		for i, row := range strings.Fields(out[0]) {
 			newRow[strings.ToLower(row)] = rows[i]
 		}
+
 		result = append(result, newRow)
-	}
-	matches := filterByRootFs(result, container)
-	for _, match := range matches {
-		datasets = append(datasets, match["name"])
-	}
-	stdout, _, err = runZfsCmd(getHost(container), "list -t all")
-	if err != nil {
-		return err
-	}
-	out = strings.Split(strings.Trim(stdout, "\n"), "\n")
-	result = []map[string]string{}
-	for _, str := range out {
-		newRow := make(map[string]string)
-		rows := strings.Fields(str)
-		for i, row := range strings.Fields(out[0]) {
-			newRow[strings.ToLower(row)] = rows[i]
-		}
-		result = append(result, newRow)
-	}
-	data := filterByRootFs(result, container)
-	for _, newRow := range filterByDatasets(result, datasets) {
-		data = append(data, newRow)
-	}
-	for _, row := range data {
-		acceptedTargets = append(acceptedTargets, row["name"])
-	}
-	for _, acceptedTarget := range acceptedTargets {
-		if acceptedTarget == target {
-			return nil
-		}
 	}
 
-	return errors.New("access forbidden")
+	return result
 }
 
 func filterByRootFs(tableData []map[string]string, container string,
@@ -330,7 +382,9 @@ func filterByRootFs(tableData []map[string]string, container string,
 				rootfs, "", -1))
 			result = append(result, row)
 		}
+
 	}
+
 	return result
 }
 
@@ -342,8 +396,11 @@ func filterByDatasets(tableData []map[string]string, datasets []string,
 			if strings.Contains(row["name"], name+"@") {
 				result = append(result, row)
 			}
+
 		}
+
 	}
+
 	return result
 }
 
@@ -352,23 +409,27 @@ func getRootFS(container string) string {
 	if host == "" {
 		return ""
 	}
+
 	runner, err := runcmd.NewRemoteKeyAuthRunner(config.User, host,
 		config.KeyFile)
 	if err != nil {
 		logger.Error(err.Error())
 		return ""
 	}
+
 	cmd, err := runner.Command("/usr/bin/grep -e lxc.rootfs /var/lib/lxc/" +
 		container + "/config")
 	if err != nil {
 		logger.Error(err.Error())
 		return ""
 	}
+
 	out, err := cmd.Run()
 	if err != nil {
 		logger.Error(err.Error())
 		return ""
 	}
+
 	result := strings.Fields(out[0])[2]
 
 	return result
@@ -380,23 +441,29 @@ func getHost(container string) string {
 		logger.Error(err.Error())
 		return ""
 	}
+
 	if response.StatusCode != 200 {
 		return ""
 	}
+
 	decoder := json.NewDecoder(response.Body)
 	report := Report{}
 	if err := decoder.Decode(&report); err != nil {
 		logger.Error(err.Error())
 	}
+
 	for name, host := range report {
 		if _, ok := host.Containers[container]; ok {
 			return name
 		}
+
 	}
+
 	return ""
 }
 
-func runZfsCmd(host, argStr string) (stdout, stderr string, err error) {
+func runZfsCmd(host string, args []string) (stdout, stderr string, err error) {
+	argStr := strings.Join(args, " ")
 	return runCmd(host, "/usr/bin/zfs "+argStr)
 }
 
@@ -408,25 +475,30 @@ func runCmd(host, cmdStr string) (stdout, stderr string, err error) {
 		logger.Error(err.Error())
 		return "", "", err
 	}
+
 	cmd, err := runner.Command(cmdStr)
 	if err != nil {
 		logger.Error(err.Error())
 		return "", "", err
 	}
+
 	err = cmd.Start()
 	if err != nil {
 		logger.Error(err.Error())
 	}
+
 	bOut, err := ioutil.ReadAll(cmd.StdoutPipe())
 	if err != nil {
 		logger.Error(err.Error())
 		return "", "", err
 	}
+
 	bErr, err := ioutil.ReadAll(cmd.StderrPipe())
 	if err != nil {
 		logger.Error(err.Error())
 		return "", "", err
 	}
+
 	return string(bOut), string(bErr), nil
 }
 
@@ -445,48 +517,46 @@ func setMountpoint(args []string, container string) []string {
 					args[len(args)-1]
 				done = true
 			}
+
 			optionsFlag = false
 		}
+
 		if i == len(args)-1 && !done {
 			result = append(result, "-o")
 			result = append(result, "mountpoint="+getRootFS(container)+"/"+arg)
 		}
+
 		if strings.HasPrefix(arg, "-") && strings.Contains(arg, "o") {
 			optionsFlag = true
 		}
+
 		result = append(result, arg)
 	}
+
 	return result
 }
 
 func remountToContainer(container string, args []string) (error, string) {
-	stdout, stderr, err := runZfsCmd(getHost(container), "list")
+	stdout, stderr, err := runZfsCmd(getHost(container), []string{"list"})
 	if err != nil {
 		return err, stderr
 	}
-	out := strings.Split(strings.Trim(stdout, "\n"), "\n")
-	result := []map[string]string{}
-	for _, str := range out {
-		newRow := make(map[string]string)
-		rows := strings.Fields(str)
-		for i, row := range strings.Fields(out[0]) {
-			newRow[strings.ToLower(row)] = rows[i]
-		}
-		result = append(result, newRow)
-	}
-	data := filterByRootFs(result, container)
-	argStr := "umount " + args[len(args)-1]
-	_, stderr, err = runZfsCmd(getHost(container), argStr)
+	data := filterByRootFs(createTableFromString(stdout), container)
+	_, stderr, err = runZfsCmd(getHost(container), []string{"umount ",
+		args[len(args)-1]})
 	if err != nil {
 		return err, stderr
 	}
+
 	mountpoint := ""
 	for _, row := range data {
 		if row["name"] == args[len(args)-1] {
 			mountpoint = row["mountpoint"]
 			break
 		}
+
 	}
+
 	cmdStr := "lxc-attach -e -n " + container + " -- /bin/mount -t zfs " +
 		args[len(args)-1] + " " + mountpoint
 	_, stderr, err = runCmd(getHost(container), cmdStr)
@@ -498,6 +568,8 @@ func mustListContainSnapshots(args []string) bool {
 		if strings.HasPrefix(arg, "-") && strings.Contains(arg, "t") {
 			return args[i+1] == "all" || strings.Contains(args[i+1], "snap")
 		}
+
 	}
+
 	return false
 }
