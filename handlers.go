@@ -49,65 +49,52 @@ type PlainData struct {
 
 func handleZfsList(container string, args []string,
 	responseWriter http.ResponseWriter) {
-	datasets := []string{}
-	byDatasets := false
-	stdout, stderr, err := runZfsCmd(getHost(container), args)
+	stdout, stderr, err := runZfsCmd(getHost(container), []string{"list", "-t",
+		"all"})
 	if err != nil {
 		replyJSONError(responseWriter, err.Error(),
 			http.StatusInternalServerError)
 		return
 	}
 
-	out := strings.Split(strings.Trim(stdout, "\n"), "\n")
-	header := strings.Fields(strings.ToLower(out[0]))
-	result := []map[string]string{}
-	for _, str := range out {
-		m := make(map[string]string)
-		rows := strings.Fields(str)
-		for i, row := range header {
-			m[row] = rows[i]
-		}
+	header, table := createTableFromString(stdout)
+	data := filterByRootFs(table, container)
 
-		result = append(result, m)
-	}
-
-	if mustListContainSnapshots(args) {
-		stdout, _, err := runZfsCmd(getHost(container), []string{"list"})
-		if err != nil {
-			replyJSONError(responseWriter, err.Error(),
-				http.StatusInternalServerError)
-			return
-		}
-
-		out := strings.Split(strings.Trim(stdout, "\n"), "\n")
-		result := []map[string]string{}
-		for _, str := range out {
-			m := make(map[string]string)
-			rows := strings.Fields(str)
-			for i, row := range header {
-				m[row] = rows[i]
-			}
-
-			result = append(result, m)
-		}
-
-		matches := filterByRootFs(result, container)
-		for _, match := range matches {
+	switch getListType(args) {
+	case "all":
+		datasets := []string{}
+		for _, match := range data {
 			datasets = append(datasets, match["name"])
 		}
 
-		byDatasets = true
-	}
-
-	data := filterByRootFs(result, container)
-	if byDatasets {
-		for _, d := range filterByDatasets(result, datasets) {
+		for _, d := range filterByDatasets(table, datasets) {
 			data = append(data, d)
 		}
 
+		replyTable(responseWriter, stderr, header, data)
+
+	case "snap", "snapshot":
+		datasets := []string{}
+		for _, match := range data {
+			datasets = append(datasets, match["name"])
+		}
+
+		data = []map[string]string{}
+		for _, d := range filterByDatasets(table, datasets) {
+			data = append(data, d)
+		}
+
+		replyTable(responseWriter, stderr, header, data)
+
+	case "filesystem":
+		replyTable(responseWriter, stderr, header, data)
+
+	default:
+		replyJSONError(responseWriter, "this type is not implemented",
+			http.StatusBadRequest)
+
 	}
 
-	replyTable(responseWriter, stderr, header, data)
 }
 
 func handleZfsSnap(container string, args []string,
@@ -320,28 +307,22 @@ func hasPermissionsZfs(container, target string) error {
 
 	acceptedTargets := []string{}
 	datasets := []string{}
-	stdout, _, err := runZfsCmd(getHost(container), []string{"list"})
+	stdout, _, err := runZfsCmd(getHost(container), []string{"list", "-t", "all"})
 	if err != nil {
 		return err
 	}
 
-	matches := filterByRootFs(createTableFromString(stdout), container)
+	_, table := createTableFromString(stdout)
+	matches := filterByRootFs(table, container)
 	for _, match := range matches {
 		datasets = append(datasets, match["name"])
 	}
 
-	stdout, _, err = runZfsCmd(getHost(container), []string{"list", "-t", "all"})
-	if err != nil {
-		return err
-	}
-
-	table := createTableFromString(stdout)
-	data := filterByRootFs(table, container)
 	for _, newRow := range filterByDatasets(table, datasets) {
-		data = append(data, newRow)
+		matches = append(matches, newRow)
 	}
 
-	for _, row := range data {
+	for _, row := range matches {
 		acceptedTargets = append(acceptedTargets, row["name"])
 	}
 
@@ -355,8 +336,9 @@ func hasPermissionsZfs(container, target string) error {
 	return errors.New("access forbidden")
 }
 
-func createTableFromString(src string) []map[string]string {
+func createTableFromString(src string) ([]string, []map[string]string) {
 	out := strings.Split(strings.Trim(src, "\n"), "\n")
+	header := strings.Fields(strings.ToLower(out[0]))
 	result := []map[string]string{}
 	for _, str := range out {
 		newRow := make(map[string]string)
@@ -368,7 +350,7 @@ func createTableFromString(src string) []map[string]string {
 		result = append(result, newRow)
 	}
 
-	return result
+	return header, result
 }
 
 func filterByRootFs(tableData []map[string]string, container string,
@@ -540,7 +522,8 @@ func remountToContainer(container string, args []string) (error, string) {
 	if err != nil {
 		return err, stderr
 	}
-	data := filterByRootFs(createTableFromString(stdout), container)
+	_, table := createTableFromString(stdout)
+	data := filterByRootFs(table, container)
 	_, stderr, err = runZfsCmd(getHost(container), []string{"umount ",
 		args[len(args)-1]})
 	if err != nil {
@@ -562,13 +545,13 @@ func remountToContainer(container string, args []string) (error, string) {
 	return err, stderr
 }
 
-func mustListContainSnapshots(args []string) bool {
+func getListType(args []string) string {
 	for i, arg := range args {
 		if strings.HasPrefix(arg, "-") && strings.Contains(arg, "t") {
-			return args[i+1] == "all" || strings.Contains(args[i+1], "snap")
+			return args[i+1]
 		}
 
 	}
 
-	return false
+	return "filesystem"
 }
