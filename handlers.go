@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/theairkit/runcmd"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
+
+	"github.com/theairkit/runcmd"
 )
 
 type Report map[string]Host
@@ -21,7 +22,13 @@ type Host struct {
 	Containers map[string]Container
 }
 
-type Container map[string]string
+type Container struct {
+	Name   string
+	Host   string
+	Status string
+	Image  string
+	Ips    map[string][]string
+}
 
 type ErrorResponse struct {
 	Error string `json:"error"`
@@ -262,12 +269,15 @@ func getContainerName(request *http.Request) (string, error) {
 
 	for _, host := range report {
 		for containerName, container := range host.Containers {
-			if container["ip"] == ip {
-				return containerName, nil
+			for _, ips := range container.Ips {
+				for _, contIp := range ips {
+					contIp = strings.Split(contIp, "/")[0]
+					if contIp == ip {
+						return containerName, nil
+					}
+				}
 			}
-
 		}
-
 	}
 
 	return "", errors.New("access forbidden")
