@@ -6,6 +6,7 @@ import (
 )
 
 func main() {
+	setupLogger()
 	http.HandleFunc("/run/", runHandler)
 	http.ListenAndServe(fmt.Sprintf(":%d", config.ServicePort), nil)
 }
