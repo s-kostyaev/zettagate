@@ -45,6 +45,10 @@ func runHandler(responseWriter http.ResponseWriter, request *http.Request) {
 		handleZfsSnap(containerName, args, responseWriter)
 	case "destroy":
 		handleZfsDestroy(containerName, args, responseWriter)
+	case "unmount":
+		handleZfsUnmount(containerName, args, responseWriter)
+	case "umount":
+		handleZfsUnmount(containerName, args, responseWriter)
 	default:
 		replyJSONError(responseWriter, "not implemented", http.StatusNotFound)
 		return

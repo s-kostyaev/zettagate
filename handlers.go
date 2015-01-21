@@ -244,6 +244,22 @@ func handleZfsRename(container string, args []string,
 	replyPlain(responseWriter, stdout, stderr)
 }
 
+func handleZfsUnmount(container string, args []string,
+	responseWriter http.ResponseWriter) {
+	err := hasPermissionsZfs(container, args[len(args)-1])
+	if err != nil {
+		replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
+	}
+
+	stdout, stder, err := runZfsCmd(getHost(container), args)
+	if err != nil {
+		replyJSONError(responseWriter, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	replyPlain(responseWriter, stdout, stder)
+}
+
 func getCommandLineFromRequest(request *http.Request) []string {
 	cmdStr, err := url.QueryUnescape(strings.TrimPrefix(request.URL.Path,
 		"/run/"))
@@ -280,10 +296,11 @@ func getContainerName(request *http.Request) (string, error) {
 		}
 	}
 
-	return "", errors.New("access forbidden")
+	return "", errors.New("container not found")
 }
 
 func replyJSONError(responseWriter http.ResponseWriter, error string, code int) {
+	logger.Error(error)
 	tmp, _ := json.Marshal(&ErrorResponse{Error: error})
 	http.Error(responseWriter, string(tmp), code)
 }
